@@ -1,0 +1,7 @@
+{
+  "CURSOR_CONNECTION_CODE": "your-connection-code-here",
+  "EASYITI_API_URL": "https://your-api-endpoint.com/api/chat-summary",
+  "autoSend": false,
+  "autoTrack": true
+}
+

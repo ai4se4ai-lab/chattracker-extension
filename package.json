@@ -1,0 +1,86 @@
+{
+  "name": "trackchat",
+  "displayName": "TrackChat - Chat Content Tracker",
+  "description": "Tracks and summarizes chat conversations, sends summaries to backend API",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "trackchat.showSummary",
+        "title": "Show Chat Summary"
+      },
+      {
+        "command": "trackchat.sendSummary",
+        "title": "Send Summary to API"
+      },
+      {
+        "command": "trackchat.openConfig",
+        "title": "Open Configuration"
+      },
+      {
+        "command": "trackchat.captureChat",
+        "title": "Capture Chat Manually"
+      },
+      {
+        "command": "trackchat.captureFromSelection",
+        "title": "Capture Chat from Selection"
+      },
+      {
+        "command": "trackchat.captureFromFile",
+        "title": "Capture Chat from File"
+      },
+      {
+        "command": "trackchat.finalizeChat",
+        "title": "Finalize Current Chat"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "trackchatView",
+          "name": "Chat Tracker",
+          "when": "true"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "trackchat.sendSummary",
+          "when": "view == trackchatView",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
+
