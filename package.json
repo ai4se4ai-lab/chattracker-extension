@@ -3,6 +3,7 @@
   "displayName": "TrackChat - Chat Content Tracker",
   "description": "Tracks and summarizes chat conversations, sends summaries to backend API",
   "version": "0.1.0",
+  "publisher": "ai4se4ai-lab",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -17,31 +18,38 @@
     "commands": [
       {
         "command": "trackchat.showSummary",
-        "title": "Show Chat Summary"
+        "title": "Show Chat Summary",
+        "category": "TrackChat"
       },
       {
         "command": "trackchat.sendSummary",
-        "title": "Send Summary to API"
+        "title": "Send Summary to API",
+        "category": "TrackChat"
       },
       {
         "command": "trackchat.openConfig",
-        "title": "Open Configuration"
+        "title": "Open Configuration",
+        "category": "TrackChat"
       },
       {
         "command": "trackchat.captureChat",
-        "title": "Capture Chat Manually"
+        "title": "Capture Chat Manually",
+        "category": "TrackChat"
       },
       {
         "command": "trackchat.captureFromSelection",
-        "title": "Capture Chat from Selection"
+        "title": "Capture Chat from Selection",
+        "category": "TrackChat"
       },
       {
         "command": "trackchat.captureFromFile",
-        "title": "Capture Chat from File"
+        "title": "Capture Chat from File",
+        "category": "TrackChat"
       },
       {
         "command": "trackchat.finalizeChat",
-        "title": "Finalize Current Chat"
+        "title": "Finalize Current Chat",
+        "category": "TrackChat"
       }
     ],
     "views": {
