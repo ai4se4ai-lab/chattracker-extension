@@ -75,8 +75,8 @@ export class SummaryPanel {
         this._disposables.push(new vscode.Disposable(() => clearInterval(interval)));
     }
 
-    private _sendToApi() {
-        const summary = this._chatTracker.getCurrentSummary();
+    private async _sendToApi() {
+        const summary = await this._chatTracker.getCurrentSummary();
         if (summary) {
             vscode.commands.executeCommand('trackchat.sendSummary');
         }
@@ -96,9 +96,13 @@ export class SummaryPanel {
         }
     }
 
-    private _update() {
-        const summary = this._chatTracker.getCurrentSummary();
+    private async _update() {
+        const summary = await this._chatTracker.getCurrentSummary();
         this._panel.webview.html = this._getHtmlForWebview(summary);
+    }
+
+    public update() {
+        this._update();
     }
 
     private _getHtmlForWebview(summary: ChatSummary | null) {
@@ -243,10 +247,17 @@ export class SummaryPanel {
     </div>
 
     <div class="section">
+        <div class="section-title">User Prompt</div>
+        <div class="section-content">
+            <p style="white-space: pre-wrap; word-wrap: break-word;">${this._escapeHtml(summary.userPrompt || 'No user prompt captured')}</p>
+        </div>
+    </div>
+
+    <div class="section">
         <div class="section-title">User Objectives</div>
         <div class="section-content">
             <ul class="objectives-list">
-                ${summary.userObjectives.map(obj => `<li>${this._escapeHtml(obj)}</li>`).join('')}
+                ${this._getUserObjectivesHtml(summary)}
             </ul>
         </div>
     </div>
@@ -254,7 +265,7 @@ export class SummaryPanel {
     <div class="section">
         <div class="section-title">AI Response Summary</div>
         <div class="section-content">
-            <p>${this._escapeHtml(summary.aiResponseSummary || 'No response summary available.')}</p>
+            <p style="white-space: pre-wrap; word-wrap: break-word;">${this._getAIResponseSummaryHtml(summary)}</p>
         </div>
     </div>
 
@@ -262,9 +273,11 @@ export class SummaryPanel {
         <div class="section-title">Main Actions</div>
         <div class="section-content">
             <ul class="actions-list">
-                ${summary.mainActions.length > 0 
+                ${summary.mainActions && summary.mainActions.length > 0 
                     ? summary.mainActions.map(action => `<li>${this._escapeHtml(action)}</li>`).join('')
-                    : '<li>No actions detected</li>'
+                    : summary.modifiedFiles && summary.modifiedFiles.length > 0
+                        ? `<li>Modified ${summary.modifiedFiles.length} file(s): ${summary.modifiedFiles.slice(0, 3).join(', ')}${summary.modifiedFiles.length > 3 ? '...' : ''}</li>`
+                        : '<li>No actions detected</li>'
                 }
             </ul>
         </div>
@@ -343,6 +356,9 @@ export class SummaryPanel {
     }
 
     private _escapeHtml(text: string): string {
+        if (!text || typeof text !== 'string') {
+            return '';
+        }
         const map: { [key: string]: string } = {
             '&': '&amp;',
             '<': '&lt;',
@@ -351,6 +367,47 @@ export class SummaryPanel {
             "'": '&#039;'
         };
         return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    private _getUserObjectivesHtml(summary: ChatSummary): string {
+        // Display all user objectives (which now contain the full user prompts)
+        const objectives = summary.userObjectives || [];
+        
+        if (objectives.length > 0) {
+            // Display all objectives, each is a full user prompt
+            return objectives
+                .filter(obj => obj && typeof obj === 'string' && obj.trim().length > 0)
+                .map(obj => `<li style="white-space: pre-wrap; word-wrap: break-word;">${this._escapeHtml(obj)}</li>`)
+                .join('');
+        }
+
+        // Fallback to user prompt if no objectives
+        if (summary.userPrompt && summary.userPrompt.trim().length > 0) {
+            return `<li style="white-space: pre-wrap; word-wrap: break-word;">${this._escapeHtml(summary.userPrompt.trim())}</li>`;
+        }
+
+        return '<li>No user prompt captured</li>';
+    }
+
+    private _getAIResponseSummaryHtml(summary: ChatSummary): string {
+        // Always show the AI response summary if available
+        if (summary.aiResponseSummary && summary.aiResponseSummary.trim().length > 0) {
+            const response = summary.aiResponseSummary.trim();
+            // Only filter out actual error messages, not responses that mention errors
+            if (response.toLowerCase().startsWith('error:') || 
+                response.toLowerCase().startsWith('api error:') ||
+                response.toLowerCase().startsWith('failed to send')) {
+                return 'AI response not yet captured. Waiting for response...';
+            }
+            return this._escapeHtml(response);
+        }
+        
+        // Show waiting message if we have a user prompt but no response yet
+        if (summary.userPrompt && summary.userPrompt.trim().length > 0) {
+            return 'AI response not yet captured. Waiting for response...';
+        }
+        
+        return 'No response summary available.';
     }
 }
 

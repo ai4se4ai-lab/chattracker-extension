@@ -13,6 +13,8 @@ export interface ChatSummary {
 
 export interface ApiRequest {
     connectionCode: string;
+    eventType: string;
+    status: TaskStatus;
     summary: ChatSummary;
 }
 

@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import { ConfigManager } from './configManager';
 import { ChatSummary, ApiRequest } from './types';
 import * as vscode from 'vscode';
+import { Logger } from './logger';
 
 export class ApiClient {
     private configManager: ConfigManager;
@@ -26,20 +27,154 @@ export class ApiClient {
 
         const request: ApiRequest = {
             connectionCode: config.CURSOR_CONNECTION_CODE,
+            eventType: 'chat-summary',
+            status: summary.taskStatus,
             summary: summary
         };
 
+        // Log detailed information about what's being sent
+        Logger.log('\n========== TrackChat: Sending Summary to API ==========');
+        Logger.log(`📍 API URL: ${config.EASYITI_API_URL}`);
+        Logger.log(`🔑 Connection Code: ${config.CURSOR_CONNECTION_CODE}`);
+        Logger.log(`📌 Event Type: ${request.eventType}`);
+        Logger.log(`📊 Status: ${request.status}`);
+        Logger.log(`📋 Chat ID: ${summary.id}`);
+        Logger.log(`⏰ Timestamp: ${summary.timestamp}`);
+        Logger.log(`📝 User Prompt: ${(summary.userPrompt || '').substring(0, 100)}${(summary.userPrompt || '').length > 100 ? '...' : ''}`);
+        Logger.log(`🎯 User Objectives: ${summary.userObjectives.length} objectives`);
+        summary.userObjectives.forEach((obj, i) => {
+            const objStr = obj || '';
+            Logger.log(`   ${i + 1}. ${objStr.substring(0, 80)}${objStr.length > 80 ? '...' : ''}`);
+        });
+        Logger.log(`🤖 AI Response Summary: ${(summary.aiResponseSummary || '').substring(0, 100)}${(summary.aiResponseSummary || '').length > 100 ? '...' : ''}`);
+        Logger.log(`⚡ Main Actions: ${summary.mainActions.length} actions`);
+        summary.mainActions.forEach((action, i) => {
+            const actionStr = action || '';
+            Logger.log(`   ${i + 1}. ${actionStr.substring(0, 80)}${actionStr.length > 80 ? '...' : ''}`);
+        });
+        Logger.log(`📁 Modified Files: ${summary.modifiedFiles.length} files`);
+        summary.modifiedFiles.forEach((file, i) => {
+            Logger.log(`   ${i + 1}. ${file}`);
+        });
+        Logger.log(`✅ Task Status: ${summary.taskStatus}`);
+        Logger.log(`📦 Request Payload Size: ${JSON.stringify(request).length} bytes`);
+        Logger.log('========================================================\n');
+
+        // Validate the request data before sending
+        this.validateRequest(request);
+
+        // Log the full request payload for debugging
+        try {
+            const requestStr = JSON.stringify(request, null, 2);
+            Logger.log('📤 Full Request Payload:');
+            Logger.log(requestStr.substring(0, 1000) + (requestStr.length > 1000 ? '\n... (truncated)' : ''));
+        } catch (e) {
+            Logger.warn('Could not stringify request for logging');
+        }
+
         try {
             const response = await this.axiosInstance.post(config.EASYITI_API_URL, request);
-            console.log('Summary sent successfully:', response.status);
+            Logger.log('✅ SUCCESS: Summary sent to API');
+            Logger.log(`   Status Code: ${response.status}`);
+            Logger.log(`   Status Text: ${response.statusText}`);
+            if (response.data) {
+                const responseStr = JSON.stringify(response.data);
+                Logger.log(`   Response Data: ${responseStr.substring(0, 200)}${responseStr.length > 200 ? '...' : ''}`);
+            }
+            Logger.log('');
         } catch (error: any) {
+            Logger.error('❌ FAILED: Summary could not be sent to API');
+            Logger.error(`   URL: ${config.EASYITI_API_URL}`);
+            
             if (error.response) {
-                throw new Error(`API Error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`);
+                Logger.error(`   Status Code: ${error.response.status}`);
+                Logger.error(`   Status Text: ${error.response.statusText}`);
+                
+                // Log full error response
+                let errorDataStr = '';
+                try {
+                    errorDataStr = JSON.stringify(error.response.data, null, 2);
+                } catch (e) {
+                    errorDataStr = String(error.response.data);
+                }
+                
+                Logger.error(`   Error Response:`);
+                Logger.error(errorDataStr);
+                
+                // Extract error message
+                const errorMessage = error.response.data?.message || 
+                                   error.response.data?.error || 
+                                   error.response.data?.detail ||
+                                   error.response.statusText;
+                
+                throw new Error(`API Error: ${error.response.status} - ${errorMessage}`);
             } else if (error.request) {
+                Logger.error('   Network Error: Could not reach the API server');
+                Logger.error(`   Request was made but no response received`);
                 throw new Error('Network Error: Could not reach the API server');
             } else {
+                Logger.error(`   Error Message: ${error.message}`);
                 throw new Error(`Request Error: ${error.message}`);
             }
+        }
+    }
+
+    /**
+     * Validate the request data before sending
+     */
+    private validateRequest(request: ApiRequest): void {
+        const errors: string[] = [];
+
+        if (!request.connectionCode || request.connectionCode.trim().length === 0) {
+            errors.push('connectionCode is missing or empty');
+        }
+
+        if (!request.eventType || request.eventType.trim().length === 0) {
+            errors.push('eventType is missing or empty');
+        }
+
+        if (!request.status || !['completed', 'in-progress', 'failed'].includes(request.status)) {
+            errors.push(`status must be one of: 'completed', 'in-progress', 'failed'`);
+        }
+
+        if (!request.summary) {
+            errors.push('summary is missing');
+        } else {
+            const summary = request.summary;
+            
+            if (!summary.id || summary.id.trim().length === 0) {
+                errors.push('summary.id is missing or empty');
+            }
+            
+            if (!summary.timestamp || summary.timestamp.trim().length === 0) {
+                errors.push('summary.timestamp is missing or empty');
+            }
+            
+            if (!summary.userPrompt || summary.userPrompt.trim().length === 0) {
+                errors.push('summary.userPrompt is missing or empty');
+            }
+            
+            if (!Array.isArray(summary.userObjectives)) {
+                errors.push('summary.userObjectives must be an array');
+            }
+            
+            if (!Array.isArray(summary.mainActions)) {
+                errors.push('summary.mainActions must be an array');
+            }
+            
+            if (!Array.isArray(summary.modifiedFiles)) {
+                errors.push('summary.modifiedFiles must be an array');
+            }
+            
+            if (!summary.taskStatus || !['completed', 'in-progress', 'failed'].includes(summary.taskStatus)) {
+                errors.push(`summary.taskStatus must be one of: 'completed', 'in-progress', 'failed'`);
+            }
+        }
+
+        if (errors.length > 0) {
+            const errorMsg = `Request validation failed:\n${errors.map(e => `  - ${e}`).join('\n')}`;
+            Logger.error(errorMsg);
+            throw new Error(errorMsg);
         }
     }
 

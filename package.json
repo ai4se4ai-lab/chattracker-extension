@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "publisher": "ai4se4ai-lab",
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
@@ -33,7 +33,12 @@
       },
       {
         "command": "trackchat.captureChat",
-        "title": "Capture Chat Manually",
+        "title": "Capture Chat",
+        "category": "TrackChat"
+      },
+      {
+        "command": "trackchat.captureFromCursorChat",
+        "title": "Capture Chat from Cursor (Clipboard)",
         "category": "TrackChat"
       },
       {
@@ -47,8 +52,33 @@
         "category": "TrackChat"
       },
       {
+        "command": "trackchat.saveToJson",
+        "title": "Save Chat to JSON",
+        "category": "TrackChat"
+      },
+      {
         "command": "trackchat.finalizeChat",
         "title": "Finalize Current Chat",
+        "category": "TrackChat"
+      },
+      {
+        "command": "trackchat.startMonitoring",
+        "title": "Start Automatic Chat Monitoring",
+        "category": "TrackChat"
+      },
+      {
+        "command": "trackchat.stopMonitoring",
+        "title": "Stop Automatic Chat Monitoring",
+        "category": "TrackChat"
+      },
+      {
+        "command": "trackchat.testExtraction",
+        "title": "Test Extraction Methods",
+        "category": "TrackChat"
+      },
+      {
+        "command": "trackchat.testUserPromptCapture",
+        "title": "Test User Prompt Capture",
         "category": "TrackChat"
       }
     ],
@@ -81,7 +111,7 @@
   },
   "devDependencies": {
     "@types/node": "^18.0.0",
-    "@types/vscode": "^1.74.0",
+    "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "eslint": "^8.28.0",
