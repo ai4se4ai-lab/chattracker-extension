@@ -8,6 +8,8 @@ import { ChatMonitor } from './chatMonitor';
 import { Logger } from './logger';
 import { testExtraction } from './testExtraction';
 import { testUserPromptCapture } from './testUserPromptCapture';
+import { ConversationViewer } from './conversationViewer';
+import { MCPIntegration } from './mcpIntegration';
 
 let chatTracker: ChatTracker;
 let configManager: ConfigManager;
@@ -25,13 +27,29 @@ export function activate(context: vscode.ExtensionContext) {
     configManager = new ConfigManager(context);
     apiClient = new ApiClient(configManager);
     chatTracker = new ChatTracker(context, apiClient);
-    chatCapture = new ChatCapture(chatTracker, configManager);
+    chatCapture = new ChatCapture(chatTracker);
     const autoSend = configManager.getConfig().autoSend || false;
     chatMonitor = new ChatMonitor(chatTracker, apiClient, autoSend, chatCapture);
 
     // Register commands
-    const showSummaryCommand = vscode.commands.registerCommand('trackchat.showSummary', () => {
-        SummaryPanel.createOrShow(context.extensionUri, chatTracker);
+    const showSummaryCommand = vscode.commands.registerCommand('trackchat.showSummary', async () => {
+        // Show captured chat JSON
+        const chatData = chatCapture.getCapturedChatData();
+        
+        if (chatData.messages.length === 0) {
+            vscode.window.showInformationMessage('No chat messages captured yet. Start a chat to begin capturing.');
+            return;
+        }
+
+        // Create and show JSON in a new document
+        const jsonContent = chatCapture.getCapturedChatJson();
+        const doc = await vscode.workspace.openTextDocument({
+            content: jsonContent,
+            language: 'json'
+        });
+        await vscode.window.showTextDocument(doc);
+        
+        vscode.window.showInformationMessage(`Showing ${chatData.messages.length} captured chat message(s)`);
     });
 
     const sendSummaryCommand = vscode.commands.registerCommand('trackchat.sendSummary', async () => {
@@ -437,6 +455,10 @@ export function activate(context: vscode.ExtensionContext) {
         await testUserPromptCapture(context, apiClient);
     });
 
+    const viewConversationsCommand = vscode.commands.registerCommand('trackchat.viewConversations', () => {
+        ConversationViewer.createOrShow(context.extensionUri, chatCapture);
+    });
+
     context.subscriptions.push(
         showSummaryCommand,
         sendSummaryCommand,
@@ -450,7 +472,8 @@ export function activate(context: vscode.ExtensionContext) {
         startMonitoringCommand,
         stopMonitoringCommand,
         testExtractionCommand,
-        testUserPromptCaptureCommand
+        testUserPromptCaptureCommand,
+        viewConversationsCommand
     );
 
     // Start tracking chat content
@@ -500,6 +523,17 @@ export function activate(context: vscode.ExtensionContext) {
             apiClient.sendSummary(summary).catch(err => {
                 console.error('Auto-send failed:', err);
             });
+        });
+    }
+
+    // Initialize MCP integration (optional)
+    const config = configManager.getConfig();
+    if (config.mcpServerUrl) {
+        MCPIntegration.registerDefaultServer({
+            mcpServerUrl: config.mcpServerUrl,
+            mcpServerToken: config.mcpServerToken
+        }).catch(err => {
+            Logger.warn('MCP server registration failed (this is optional)');
         });
     }
 }

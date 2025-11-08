@@ -7,6 +7,8 @@ export interface ExtensionConfig {
     EASYITI_API_URL: string;
     autoSend?: boolean;
     autoTrack?: boolean;
+    mcpServerUrl?: string;
+    mcpServerToken?: string;
 }
 
 export class ConfigManager {

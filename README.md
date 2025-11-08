@@ -13,6 +13,10 @@ A Cursor extension that tracks and summarizes chat conversations, automatically 
   - Task status (completed, in-progress, failed)
 - 🔌 **Backend Integration**: Sends summaries to your backend API
 - 🎨 **User-Friendly UI**: Simple and intuitive interface to view and manage chat summaries
+- 💬 **Conversation Viewer**: Advanced webview panel to view, search, filter, and export all captured conversations
+- 🔍 **Search & Filter**: Real-time search and filtering capabilities for conversations
+- 📤 **Multiple Export Formats**: Export conversations as JSON, JSONL, CSV, or Markdown
+- 🔗 **MCP Integration**: Optional MCP (Model Context Protocol) server integration for advanced use cases
 - ⚙️ **Configurable**: Easy JSON-based configuration
 
 ## Installation
@@ -33,7 +37,9 @@ A Cursor extension that tracks and summarizes chat conversations, automatically 
   "CURSOR_CONNECTION_CODE": "your-connection-code-here",
   "EASYITI_API_URL": "https://your-api-endpoint.com/api/chat-summary",
   "autoSend": false,
-  "autoTrack": true
+  "autoTrack": true,
+  "mcpServerUrl": "http://localhost:3000/mcp",
+  "mcpServerToken": "your-mcp-token"
 }
 ```
 
@@ -43,6 +49,8 @@ A Cursor extension that tracks and summarizes chat conversations, automatically 
 - `EASYITI_API_URL`: The full URL of your backend API endpoint
 - `autoSend`: Automatically send summaries when chat ends (default: false)
 - `autoTrack`: Automatically track file changes (default: true)
+- `mcpServerUrl`: (Optional) URL for MCP server integration
+- `mcpServerToken`: (Optional) Authentication token for MCP server
 
 ## Usage
 
@@ -56,6 +64,7 @@ Access commands via Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 - **TrackChat: Capture Chat Manually** - Manually capture a chat interaction
 - **TrackChat: Capture Chat from Selection** - Capture chat from selected text
 - **TrackChat: Capture Chat from File** - Import chat from a file
+- **TrackChat: View Captured Conversations** - Opens the conversation viewer with search, filter, and export
 - **TrackChat: Finalize Current Chat** - Mark current chat as complete
 
 ### Workflow
@@ -128,16 +137,23 @@ npm test
 trackchat/
 ├── src/
 │   ├── extension.ts          # Main extension entry point
-│   ├── chatTracker.ts        # Core chat tracking logic
-│   ├── chatCapture.ts        # Chat content capture methods
-│   ├── configManager.ts      # Configuration management
-│   ├── apiClient.ts          # Backend API client
-│   ├── summaryPanel.ts       # UI panel for displaying summaries
-│   └── types.ts              # TypeScript type definitions
-├── package.json              # Extension manifest
-├── tsconfig.json             # TypeScript configuration
-├── config.json.template      # Configuration template
-└── README.md                 # This file
+│   ├── chatTracker.ts               # Core chat tracking logic
+│   ├── chatCapture.ts               # Chat content capture methods
+│   ├── chatMonitor.ts               # Automatic chat monitoring
+│   ├── configManager.ts             # Configuration management
+│   ├── apiClient.ts                 # Backend API client
+│   ├── summaryPanel.ts              # UI panel for displaying summaries
+│   ├── conversationViewer.ts        # Advanced conversation viewer with export
+│   ├── mcpIntegration.ts            # MCP server integration
+│   └── types.ts                     # TypeScript type definitions
+├── docs/
+│   ├── CONVERSATION_VIEWER.md       # Conversation viewer documentation
+│   ├── MCP_INTEGRATION.md           # MCP integration guide
+│   └── ...                          # Other documentation files
+├── package.json                     # Extension manifest
+├── tsconfig.json                    # TypeScript configuration
+├── config.json.template              # Configuration template
+└── README.md                        # This file
 ```
 
 ## Troubleshooting

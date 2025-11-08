@@ -80,6 +80,11 @@
         "command": "trackchat.testUserPromptCapture",
         "title": "Test User Prompt Capture",
         "category": "TrackChat"
+      },
+      {
+        "command": "trackchat.viewConversations",
+        "title": "View Captured Conversations",
+        "category": "TrackChat"
       }
     ],
     "views": {
