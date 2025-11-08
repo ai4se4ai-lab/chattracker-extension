@@ -1,0 +1,94 @@
+{
+  "name": "cursor-chat-tracker",
+  "displayName": "Cursor Chat Tracker",
+  "description": "Track and export Cursor chat interactions with prompts and AI responses",
+  "version": "0.0.1",
+  "publisher": "your-publisher",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "cursor-chat-tracker.exportChat",
+        "title": "Export Chat to Backend",
+        "category": "Cursor Chat Tracker"
+      },
+      {
+        "command": "cursor-chat-tracker.addUserMessage",
+        "title": "Add User Message",
+        "category": "Cursor Chat Tracker"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "cursor-chat-tracker.exportChat",
+          "title": "Cursor Chat Tracker: Export Chat to Backend"
+        },
+        {
+          "command": "cursor-chat-tracker.addUserMessage",
+          "title": "Cursor Chat Tracker: Add User Message"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "cursor-chat-tracker.exportChat",
+          "when": "view == chat",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "cursor-chat-tracker.exportChat",
+          "when": "view == chat",
+          "group": "inline"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "cursor-chat-tracker.exportChat",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Cursor Chat Tracker",
+      "properties": {
+        "cursorChatTracker.configPath": {
+          "type": "string",
+          "default": "${workspaceFolder}/.cursor-chat-tracker.json",
+          "description": "Path to the JSON configuration file"
+        },
+        "cursorChatTracker.backendUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Backend API endpoint (overrides config file)"
+        },
+        "cursorChatTracker.connectionCode": {
+          "type": "string",
+          "default": "",
+          "description": "Connection code for authentication (overrides config file)"
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.0.0"
+  }
+}
+
