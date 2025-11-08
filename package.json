@@ -24,14 +24,87 @@
       {
         "command": "cursor-chat-tracker.exportChat",
         "title": "Export Chat to Backend",
-        "category": "Cursor Chat Tracker"
+        "category": "Cursor Chat Tracker",
+        "icon": "$(export)"
       },
       {
         "command": "cursor-chat-tracker.addUserMessage",
         "title": "Add User Message",
+        "category": "Cursor Chat Tracker",
+        "icon": "$(add)"
+      },
+      {
+        "command": "cursor-chat-tracker.captureFromSelection",
+        "title": "Capture from Selection",
+        "category": "Cursor Chat Tracker",
+        "icon": "$(selection)"
+      },
+      {
+        "command": "cursor-chat-tracker.startNewSession",
+        "title": "Start New Session",
+        "category": "Cursor Chat Tracker",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "cursor-chat-tracker.clearSession",
+        "title": "Clear Current Session",
+        "category": "Cursor Chat Tracker",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "cursor-chat-tracker.switchSession",
+        "title": "Switch Session",
         "category": "Cursor Chat Tracker"
+      },
+      {
+        "command": "cursor-chat-tracker.openConfig",
+        "title": "Open Configuration",
+        "category": "Cursor Chat Tracker",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "cursor-chat-tracker.openSettings",
+        "title": "Open Settings",
+        "category": "Cursor Chat Tracker",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "cursor-chat-tracker.reloadConfig",
+        "title": "Reload Configuration",
+        "category": "Cursor Chat Tracker",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "cursor-chat-tracker.associateChatTab",
+        "title": "Associate with Chat Tab",
+        "category": "Cursor Chat Tracker",
+        "icon": "$(link)"
+      },
+      {
+        "command": "cursor-chat-tracker.exportSession",
+        "title": "Export Session to Backend",
+        "category": "Cursor Chat Tracker",
+        "icon": "$(export)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cursor-chat-tracker",
+          "title": "Chat Tracker",
+          "icon": "$(comment-discussion)"
+        }
+      ]
+    },
+    "views": {
+      "cursor-chat-tracker": [
+        {
+          "id": "cursor-chat-tracker-view",
+          "name": "Chat Tracker",
+          "when": "true"
+        }
+      ]
+    },
     "menus": {
       "commandPalette": [
         {
@@ -41,26 +114,72 @@
         {
           "command": "cursor-chat-tracker.addUserMessage",
           "title": "Cursor Chat Tracker: Add User Message"
+        },
+        {
+          "command": "cursor-chat-tracker.captureFromSelection",
+          "title": "Cursor Chat Tracker: Capture from Selection"
+        },
+        {
+          "command": "cursor-chat-tracker.startNewSession",
+          "title": "Cursor Chat Tracker: Start New Session"
+        },
+        {
+          "command": "cursor-chat-tracker.clearSession",
+          "title": "Cursor Chat Tracker: Clear Current Session"
+        },
+        {
+          "command": "cursor-chat-tracker.openConfig",
+          "title": "Cursor Chat Tracker: Open Configuration"
+        },
+        {
+          "command": "cursor-chat-tracker.openSettings",
+          "title": "Cursor Chat Tracker: Open Settings"
+        },
+        {
+          "command": "cursor-chat-tracker.reloadConfig",
+          "title": "Cursor Chat Tracker: Reload Configuration"
+        },
+        {
+          "command": "cursor-chat-tracker.associateChatTab",
+          "title": "Cursor Chat Tracker: Associate with Chat Tab"
+        },
+        {
+          "command": "cursor-chat-tracker.exportSession",
+          "title": "Cursor Chat Tracker: Export Session to Backend"
         }
       ],
       "view/title": [
         {
           "command": "cursor-chat-tracker.exportChat",
-          "when": "view == chat",
+          "when": "view == cursor-chat-tracker-view",
+          "group": "navigation"
+        },
+        {
+          "command": "cursor-chat-tracker.startNewSession",
+          "when": "view == cursor-chat-tracker-view",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
           "command": "cursor-chat-tracker.exportChat",
-          "when": "view == chat",
+          "when": "view == cursor-chat-tracker-view && viewItem == action.export",
           "group": "inline"
-        }
-      ],
-      "explorer/context": [
+        },
         {
-          "command": "cursor-chat-tracker.exportChat",
-          "group": "navigation"
+          "command": "cursor-chat-tracker.clearSession",
+          "when": "view == cursor-chat-tracker-view && viewItem == action.clear",
+          "group": "inline"
+        },
+        {
+          "command": "cursor-chat-tracker.switchSession",
+          "when": "view == cursor-chat-tracker-view && viewItem == session.item",
+          "group": "inline"
+        },
+        {
+          "command": "cursor-chat-tracker.exportSession",
+          "when": "view == cursor-chat-tracker-view && viewItem == session.item",
+          "group": "1_actions"
         }
       ]
     },

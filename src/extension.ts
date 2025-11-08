@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ChatCapture, ChatSession } from './chatCapture';
+import { ChatTrackerTreeDataProvider } from './treeViewProvider';
 
 interface ChatData {
   chatId: string;
@@ -24,6 +25,7 @@ interface Config {
 }
 
 let chatCapture: ChatCapture;
+let treeDataProvider: ChatTrackerTreeDataProvider;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Cursor Chat Tracker extension is now active');
@@ -31,6 +33,22 @@ export function activate(context: vscode.ExtensionContext) {
   // Initialize chat capture
   chatCapture = new ChatCapture();
   context.subscriptions.push(chatCapture);
+
+  // Initialize tree view provider
+  treeDataProvider = new ChatTrackerTreeDataProvider(chatCapture);
+  const treeView = vscode.window.createTreeView('cursor-chat-tracker-view', {
+    treeDataProvider: treeDataProvider,
+    showCollapseAll: true
+  });
+  context.subscriptions.push(treeView);
+
+  // Store tree view reference for use in commands
+  (global as any).chatTrackerTreeView = treeView;
+
+  // Refresh tree view when chat data changes
+  const refreshTreeView = () => {
+    treeDataProvider.refresh();
+  };
 
   // Start a new chat session
   chatCapture.startSession();
@@ -40,6 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
     'cursor-chat-tracker.exportChat',
     async () => {
       await exportCurrentChat();
+      refreshTreeView();
     }
   );
 
@@ -56,16 +75,181 @@ export function activate(context: vscode.ExtensionContext) {
       if (text) {
         chatCapture.addMessage('user', text);
         vscode.window.showInformationMessage('User message added to chat history');
+        refreshTreeView();
       }
     }
   );
 
   context.subscriptions.push(addUserMessageCommand);
 
+  // Register command to capture from selection
+  const captureFromSelectionCommand = vscode.commands.registerCommand(
+    'cursor-chat-tracker.captureFromSelection',
+    async () => {
+      const captured = await chatCapture.captureFromSelection();
+      if (captured) {
+        vscode.window.showInformationMessage('Content captured from selection/clipboard');
+        refreshTreeView();
+      } else {
+        vscode.window.showWarningMessage('No content found in selection or clipboard');
+      }
+    }
+  );
+  context.subscriptions.push(captureFromSelectionCommand);
+
+  // Register command to start new session
+  const startNewSessionCommand = vscode.commands.registerCommand(
+    'cursor-chat-tracker.startNewSession',
+    async () => {
+      chatCapture.startSession();
+      vscode.window.showInformationMessage('New chat session started');
+      refreshTreeView();
+    }
+  );
+  context.subscriptions.push(startNewSessionCommand);
+
+  // Register command to clear session
+  const clearSessionCommand = vscode.commands.registerCommand(
+    'cursor-chat-tracker.clearSession',
+    async () => {
+      const result = await vscode.window.showWarningMessage(
+        'Are you sure you want to clear the current session?',
+        { modal: true },
+        'Yes',
+        'No'
+      );
+      if (result === 'Yes') {
+        chatCapture.clearSession();
+        vscode.window.showInformationMessage('Current session cleared');
+        refreshTreeView();
+      }
+    }
+  );
+  context.subscriptions.push(clearSessionCommand);
+
+  // Register command to switch session and show content
+  const switchSessionCommand = vscode.commands.registerCommand(
+    'cursor-chat-tracker.switchSession',
+    async (sessionId: string) => {
+      chatCapture.setCurrentSession(sessionId);
+      const session = chatCapture.getChatData(sessionId);
+      
+      if (session) {
+        // Show the session content in a new editor window
+        await showSessionContent(session);
+        
+        vscode.window.showInformationMessage(
+          `Switched to session: ${session.chatTabTitle || sessionId.substring(0, 15)}...`
+        );
+      }
+      refreshTreeView();
+    }
+  );
+  context.subscriptions.push(switchSessionCommand);
+
+  // Register command to export a specific session
+  const exportSessionCommand = vscode.commands.registerCommand(
+    'cursor-chat-tracker.exportSession',
+    async (item: any) => {
+      // Handle both direct sessionId string and tree item
+      let sessionId: string | undefined;
+      
+      if (typeof item === 'string') {
+        sessionId = item;
+      } else if (item && typeof item === 'object') {
+        // Tree item passed from context menu
+        if (item.sessionId) {
+          sessionId = item.sessionId;
+        } else if (item.label) {
+          // Try to extract session ID from label or find by matching
+          // This is a fallback
+        }
+      }
+      
+      // If still no sessionId, try to get from tree view selection
+      if (!sessionId) {
+        const selected = treeView.selection[0];
+        if (selected && (selected as any).sessionId) {
+          sessionId = (selected as any).sessionId;
+        }
+      }
+
+      if (!sessionId) {
+        vscode.window.showErrorMessage('Please select a session to export');
+        return;
+      }
+
+      const session = chatCapture.getChatData(sessionId);
+      if (!session) {
+        vscode.window.showErrorMessage('Session not found');
+        return;
+      }
+      
+      await exportSession(session);
+      refreshTreeView();
+    }
+  );
+  context.subscriptions.push(exportSessionCommand);
+
+  // Register command to open config file
+  const openConfigCommand = vscode.commands.registerCommand(
+    'cursor-chat-tracker.openConfig',
+    async () => {
+      const config = vscode.workspace.getConfiguration('cursorChatTracker');
+      const configPath = config.get<string>('configPath', '');
+      
+      if (configPath) {
+        const resolvedPath = configPath.replace('${workspaceFolder}', 
+          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
+        
+        if (fs.existsSync(resolvedPath)) {
+          const doc = await vscode.workspace.openTextDocument(resolvedPath);
+          await vscode.window.showTextDocument(doc);
+        } else {
+          // Create config file if it doesn't exist
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          if (workspaceFolder) {
+            const defaultConfig = {
+              CURSOR_CONNECTION_CODE: "",
+              EASYITI_API_URL: "http://localhost:3001/api/cursor-events"
+            };
+            fs.writeFileSync(resolvedPath, JSON.stringify(defaultConfig, null, 2));
+            const doc = await vscode.workspace.openTextDocument(resolvedPath);
+            await vscode.window.showTextDocument(doc);
+            vscode.window.showInformationMessage('Configuration file created');
+          }
+        }
+      } else {
+        vscode.window.showErrorMessage('Configuration path not set');
+      }
+    }
+  );
+  context.subscriptions.push(openConfigCommand);
+
+  // Register command to open settings
+  const openSettingsCommand = vscode.commands.registerCommand(
+    'cursor-chat-tracker.openSettings',
+    async () => {
+      await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:your-publisher.cursor-chat-tracker');
+    }
+  );
+  context.subscriptions.push(openSettingsCommand);
+
+  // Register command to reload config
+  const reloadConfigCommand = vscode.commands.registerCommand(
+    'cursor-chat-tracker.reloadConfig',
+    async () => {
+      vscode.window.showInformationMessage('Configuration reloaded');
+      refreshTreeView();
+    }
+  );
+  context.subscriptions.push(reloadConfigCommand);
+
   // Monitor text document changes (for AI-generated code)
   const documentChangeListener = vscode.workspace.onDidChangeTextDocument(
     (event) => {
       chatCapture.captureCodeChange(event.document, event.contentChanges);
+      refreshTreeView();
     }
   );
 
@@ -84,6 +268,219 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Try to intercept Cursor chat commands
   setupCommandInterceptor(context);
+
+  // Monitor for chat tab changes and associate sessions
+  setupChatTabTracking(context, refreshTreeView);
+}
+
+// Track chat tabs and associate with sessions
+function setupChatTabTracking(context: vscode.ExtensionContext, refreshTreeView: () => void) {
+  // Monitor tab changes to detect when chat tabs become active
+  // Note: Cursor's chat tabs are webviews, which may not be directly accessible
+  // We'll use a combination of approaches:
+  
+  // 1. Monitor visible editors (chat tabs might appear as special editors)
+  const visibleEditorsListener = vscode.window.onDidChangeVisibleTextEditors((editors) => {
+    // Try to detect chat-related editors
+    editors.forEach(editor => {
+      const uri = editor.document.uri;
+      // Check if this might be a chat tab (heuristic)
+      if (uri.scheme === 'vscode-webview' || uri.scheme === 'cursor-chat') {
+        const chatTabId = uri.toString();
+        // Try to get or create a session for this chat tab
+        const sessionId = chatCapture.getSessionForChatTab(chatTabId);
+        if (!sessionId) {
+          // Create a new session for this chat tab
+          const title = editor.document.fileName || 'Chat';
+          chatCapture.startSession(undefined, chatTabId, title);
+          refreshTreeView();
+        } else {
+          // Switch to the existing session
+          chatCapture.setCurrentSession(sessionId);
+          refreshTreeView();
+        }
+      }
+    });
+  });
+  context.subscriptions.push(visibleEditorsListener);
+
+  // 2. Register command to manually associate current session with active chat tab
+  const associateChatTabCommand = vscode.commands.registerCommand(
+    'cursor-chat-tracker.associateChatTab',
+    async () => {
+      const session = chatCapture.getChatData();
+      if (!session) {
+        vscode.window.showWarningMessage('No active session to associate');
+        return;
+      }
+
+      // Try to detect the active chat tab
+      const activeEditor = vscode.window.activeTextEditor;
+      let chatTabId: string | undefined;
+      let chatTabTitle: string | undefined;
+
+      if (activeEditor) {
+        const uri = activeEditor.document.uri;
+        if (uri.scheme === 'vscode-webview' || uri.scheme === 'cursor-chat') {
+          chatTabId = uri.toString();
+          chatTabTitle = activeEditor.document.fileName || 'Chat';
+        }
+      }
+
+      // If we couldn't auto-detect, ask the user
+      if (!chatTabId) {
+        const input = await vscode.window.showInputBox({
+          prompt: 'Enter a name/identifier for this chat tab',
+          placeHolder: 'e.g., Chat 1, Main Chat, etc.',
+          value: session.chatTabTitle || ''
+        });
+        if (input) {
+          chatTabId = `chat-tab-${input}`;
+          chatTabTitle = input;
+        } else {
+          return;
+        }
+      }
+
+      if (chatTabId) {
+        chatCapture.associateChatTab(session.id, chatTabId, chatTabTitle);
+        vscode.window.showInformationMessage(`Session associated with chat tab: ${chatTabTitle || chatTabId}`);
+        refreshTreeView();
+      }
+    }
+  );
+  context.subscriptions.push(associateChatTabCommand);
+
+  // 3. Periodically check for ALL chat tabs and create sessions
+  const checkInterval = setInterval(() => {
+    // Detect all chat tabs and create sessions for each
+    const detectedTabs = chatCapture.detectAllChatTabs();
+    if (detectedTabs.length > 0) {
+      refreshTreeView();
+    }
+  }, 2000); // Check every 2 seconds
+
+  context.subscriptions.push({
+    dispose: () => clearInterval(checkInterval)
+  });
+
+  // 4. Initial scan for all chat tabs
+  setTimeout(() => {
+    chatCapture.detectAllChatTabs();
+    refreshTreeView();
+  }, 1000);
+}
+
+/**
+ * Display session content in a new editor window
+ */
+async function showSessionContent(session: ChatSession): Promise<void> {
+  try {
+    // Format the session content as markdown
+    let content = `# Chat Session: ${session.chatTabTitle || session.id}\n\n`;
+    content += `**Session ID:** ${session.id}\n`;
+    content += `**Created:** ${new Date(session.createdAt).toLocaleString()}\n`;
+    content += `**Last Updated:** ${new Date(session.lastUpdated).toLocaleString()}\n`;
+    content += `**Messages:** ${session.messages.length}\n\n`;
+    content += `---\n\n`;
+
+    // Add all messages
+    session.messages.forEach((message, index) => {
+      const timestamp = new Date(message.timestamp).toLocaleString();
+      const role = message.role === 'user' ? '👤 User' : '🤖 Assistant';
+      content += `## ${role} - ${timestamp}\n\n`;
+      content += `${message.content}\n\n`;
+      content += `---\n\n`;
+    });
+
+    // Create an untitled markdown document with the content
+    const doc = await vscode.workspace.openTextDocument({
+      language: 'markdown',
+      content: content
+    });
+    
+    // Show the document
+    await vscode.window.showTextDocument(doc, { preview: false });
+  } catch (error) {
+    // Fallback: use untitled document
+    try {
+      let content = `# Chat Session: ${session.chatTabTitle || session.id}\n\n`;
+      content += `**Session ID:** ${session.id}\n`;
+      content += `**Created:** ${new Date(session.createdAt).toLocaleString()}\n`;
+      content += `**Last Updated:** ${new Date(session.lastUpdated).toLocaleString()}\n`;
+      content += `**Messages:** ${session.messages.length}\n\n`;
+      content += `---\n\n`;
+
+      session.messages.forEach((message) => {
+        const timestamp = new Date(message.timestamp).toLocaleString();
+        const role = message.role === 'user' ? '👤 User' : '🤖 Assistant';
+        content += `## ${role} - ${timestamp}\n\n`;
+        content += `${message.content}\n\n`;
+        content += `---\n\n`;
+      });
+
+      const doc = await vscode.workspace.openTextDocument({
+        language: 'markdown',
+        content: content
+      });
+      await vscode.window.showTextDocument(doc, { preview: false });
+    } catch (fallbackError) {
+      vscode.window.showErrorMessage(`Failed to display session content: ${fallbackError}`);
+    }
+  }
+}
+
+/**
+ * Export a specific session to the backend
+ */
+async function exportSession(session: ChatSession): Promise<void> {
+  try {
+    const config = await loadConfig();
+    if (!config) {
+      vscode.window.showErrorMessage(
+        'Cursor Chat Tracker: Configuration file not found or invalid. Please check your config file.'
+      );
+      return;
+    }
+
+    // Convert session to chat data format
+    const chatData: ChatData = {
+      chatId: session.id,
+      title: session.chatTabTitle,
+      messages: session.messages,
+      metadata: {
+        workspaceFolder: vscode.workspace.workspaceFolders?.[0]?.name,
+        timestamp: session.createdAt,
+        extensionVersion: '0.0.1'
+      }
+    };
+
+    if (chatData.messages.length === 0) {
+      vscode.window.showWarningMessage(
+        'Cursor Chat Tracker: No messages in this session to export.'
+      );
+      return;
+    }
+
+    // Submit to backend
+    const success = await sendToBackend(chatData, config);
+    
+    if (success) {
+      vscode.window.showInformationMessage(
+        `Cursor Chat Tracker: Session exported successfully (${chatData.messages.length} messages)`
+      );
+    } else {
+      vscode.window.showErrorMessage(
+        'Cursor Chat Tracker: Failed to export session. Check the output panel for details.'
+      );
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    vscode.window.showErrorMessage(
+      `Cursor Chat Tracker: Error exporting session - ${errorMessage}`
+    );
+    console.error('Export session error:', error);
+  }
 }
 
 async function exportCurrentChat() {
