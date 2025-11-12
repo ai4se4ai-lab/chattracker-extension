@@ -1,0 +1,49 @@
+{
+  "name": "cursor-chat-tracker",
+  "displayName": "Cursor Chat Tracker",
+  "description": "Automatically export Cursor chat messages to JSON files",
+  "version": "1.0.0",
+  "publisher": "cursor-chat-tracker",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cursor-chat-tracker.exportChat",
+        "title": "Export Chat Messages"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "cursor-chat-tracker.exportChat",
+        "key": "ctrl+shift+space",
+        "mac": "cmd+shift+space"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.74.0",
+    "typescript": "^5.0.0",
+    "@vscode/vsce": "^2.19.0"
+  },
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "@types/crypto-js": "^4.2.0"
+  }
+}
+
