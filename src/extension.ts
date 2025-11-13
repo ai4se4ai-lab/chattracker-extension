@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { extractChatMessages } from './chatExtractor';
-import { writeChatFile, getDisplayPath, findMostRecentChatFile, readExistingChatFile, isContinuation, appendToChatFile } from './fileManager';
+import { writeChatFile, getDisplayPath, findChatFileById, findChatFileByFirstMessage, extractChatIdFromFilePath, readExistingChatFile, isContinuation, appendToChatFile } from './fileManager';
 import { formatAsMarkdown } from './markdownFormatter';
 
 /**
@@ -59,56 +60,104 @@ async function exportChatHandler(): Promise<void> {
         
         console.log('[Chat Tracker] Successfully extracted', extractionResult.data.messages.length, 'messages');
 
-        // Check if this is a continuation of an existing chat
+        // Generate stable chat ID based on first user message (chat tab identifier)
+        const chatId = extractionResult.data.metadata.chatId;
+        const firstUserMessage = extractionResult.data.messages.find(m => m.role === 'user')?.content || '';
+        console.log('[Chat Tracker] Chat ID (based on first user message):', chatId);
+        console.log('[Chat Tracker] First user message:', firstUserMessage.substring(0, 50));
+        
+        // Check if a file with this chat ID already exists (permanent link to chat tab)
         progress.report({ message: 'Checking for existing chat...' });
-        const mostRecentFile = findMostRecentChatFile();
+        let existingFile = findChatFileById(chatId);
         let filePath: string;
         let isAppended = false;
         
-        if (mostRecentFile) {
-          const existingChat = readExistingChatFile(mostRecentFile);
-          console.log('[Chat Tracker] Existing chat file found:', path.basename(mostRecentFile));
+        // If no file found by exact chat ID, try to find by matching first user message
+        // This handles cases where the first prompt was edited (chat ID changed but same chat tab)
+        if (!existingFile && firstUserMessage) {
+          console.log('[Chat Tracker] No file found with exact chat ID, checking for file with matching first message...');
+          existingFile = findChatFileByFirstMessage(firstUserMessage);
+          if (existingFile) {
+            // Found file with matching first message - extract its chat ID and use that
+            const existingChatId = extractChatIdFromFilePath(existingFile);
+            if (existingChatId) {
+              console.log('[Chat Tracker] Found existing chat file with matching first message, chat ID:', existingChatId);
+              // Use the existing chat ID to maintain the permanent link
+              // But we'll update the file with new content
+            }
+          }
+        }
+        
+        if (existingFile) {
+          // File exists for this chat tab - update it with latest version
+          console.log('[Chat Tracker] ✅ Found existing file for this chat tab:', path.basename(existingFile));
+          console.log('[Chat Tracker] This is the same chat tab - updating file with latest version');
+          
+          const existingChat = readExistingChatFile(existingFile);
           console.log('[Chat Tracker] Existing messages count:', existingChat?.messages.length || 0);
           console.log('[Chat Tracker] New messages count:', extractionResult.data.messages.length);
           
-          if (existingChat && isContinuation(existingChat.messages, extractionResult.data.messages)) {
-            // This is a continuation - append to existing file
-            console.log('[Chat Tracker] ✅ Detected continuation, appending to existing file');
-            progress.report({ message: 'Appending to existing chat...' });
-            
-            // Find only the new messages (messages not in existing file)
-            const existingCount = existingChat.messages.length;
-            const newMessages = extractionResult.data.messages.slice(existingCount);
-            
-            console.log('[Chat Tracker] Existing messages:', existingCount, 'New messages to append:', newMessages.length);
-            
-            if (newMessages.length > 0) {
-              filePath = appendToChatFile(mostRecentFile, newMessages, 'md');
-              isAppended = true;
+          if (existingChat) {
+            // Check if it's a continuation (new messages added) or update (same/edited messages)
+            if (isContinuation(existingChat.messages, extractionResult.data.messages)) {
+              // This is a continuation - append new messages
+              console.log('[Chat Tracker] ✅ Detected continuation, appending new messages');
+              progress.report({ message: 'Appending to existing chat...' });
+              
+              const existingCount = existingChat.messages.length;
+              const newMessages = extractionResult.data.messages.slice(existingCount);
+              
+              console.log('[Chat Tracker] Existing messages:', existingCount, 'New messages to append:', newMessages.length);
+              
+              if (newMessages.length > 0) {
+                filePath = appendToChatFile(existingFile, newMessages, 'md');
+                isAppended = true;
+              } else {
+                // All messages already exist, just use existing file
+                console.log('[Chat Tracker] All messages already exist in file');
+                filePath = existingFile;
+                isAppended = true;
+              }
             } else {
-              // All messages already exist, just use existing file
-              console.log('[Chat Tracker] All messages already exist in file');
-              filePath = mostRecentFile;
-              isAppended = true;
+              // Same chat tab but different content - update with latest version
+              // This handles edited prompts or other changes
+              console.log('[Chat Tracker] ✅ Same chat tab, updating with latest version');
+              progress.report({ message: 'Updating chat with latest changes...' });
+              
+              // Get the existing chat ID from the file to maintain the permanent link
+              const existingChatId = extractChatIdFromFilePath(existingFile);
+              const finalChatId = existingChatId || chatId; // Use existing ID if available
+              
+              // Replace the entire file with the updated version, but keep the same chat ID
+              const markdownContent = formatAsMarkdown(extractionResult.data);
+              
+              // If chat ID changed, we need to rename the file to maintain the link
+              if (existingChatId && existingChatId !== chatId) {
+                console.log('[Chat Tracker] Chat ID changed, but keeping existing file name to maintain chat tab link');
+                // Write to existing file (maintains the permanent link)
+                fs.writeFileSync(existingFile, markdownContent, 'utf-8');
+                filePath = existingFile;
+              } else {
+                // Same chat ID, just update content
+                fs.writeFileSync(existingFile, markdownContent, 'utf-8');
+                filePath = existingFile;
+              }
+              
+              isAppended = true; // Mark as updated (not a new file)
+              console.log('[Chat Tracker] Updated file with latest messages');
             }
           } else {
-            // New conversation - create new file
-            console.log('[Chat Tracker] ❌ New conversation detected (not a continuation), creating new file');
-            if (existingChat) {
-              console.log('[Chat Tracker] Continuation check failed - messages differ');
-              console.log('[Chat Tracker] Last existing message:', existingChat.messages[existingChat.messages.length - 1]?.content?.substring(0, 50));
-              console.log('[Chat Tracker] First new message:', extractionResult.data.messages[0]?.content?.substring(0, 50));
-            }
-            progress.report({ message: 'Writing to file...' });
-            const chatId = extractionResult.data.metadata.chatId;
+            // Couldn't parse existing file, but file exists - update it
+            console.log('[Chat Tracker] Could not parse existing file, updating with new content');
             const markdownContent = formatAsMarkdown(extractionResult.data);
-            filePath = writeChatFile(extractionResult.data, chatId, markdownContent, 'md');
+            fs.writeFileSync(existingFile, markdownContent, 'utf-8');
+            filePath = existingFile;
+            isAppended = true;
           }
         } else {
-          // No existing file - create new one
-          console.log('[Chat Tracker] No existing chat file, creating new file');
+          // No file exists for this chat tab - create new file
+          console.log('[Chat Tracker] No existing file for this chat tab, creating new file');
           progress.report({ message: 'Writing to file...' });
-          const chatId = extractionResult.data.metadata.chatId;
           const markdownContent = formatAsMarkdown(extractionResult.data);
           filePath = writeChatFile(extractionResult.data, chatId, markdownContent, 'md');
         }

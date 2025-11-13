@@ -34,19 +34,33 @@ describe('HashGenerator', () => {
       expect(hash2).toMatch(/^[a-f0-9]{8}$/);
     });
 
-    it('should generate consistent format for same content', () => {
-      const messages: ChatMessage[] = [
+    it('should generate consistent hash for same first user message', () => {
+      const messages1: ChatMessage[] = [
         {
           role: 'user',
           content: 'Test message',
           timestamp: '2024-01-01T00:00:00Z',
         },
       ];
+      const messages2: ChatMessage[] = [
+        {
+          role: 'user',
+          content: 'Test message',
+          timestamp: '2024-01-01T00:00:00Z',
+        },
+        {
+          role: 'assistant',
+          content: 'Response',
+          timestamp: '2024-01-01T00:05:00Z',
+        },
+      ];
 
-      const hash = generateChatId(messages);
+      const hash1 = generateChatId(messages1);
+      const hash2 = generateChatId(messages2);
       
-      // Should be alphanumeric
-      expect(hash).toMatch(/^[a-f0-9]{8}$/);
+      // Should be the same because first user message is the same
+      expect(hash1).toBe(hash2);
+      expect(hash1).toMatch(/^[a-f0-9]{8}$/);
     });
 
     it('should handle empty messages array', () => {
@@ -57,7 +71,7 @@ describe('HashGenerator', () => {
       expect(hash).toMatch(/^[a-f0-9]{8}$/);
     });
 
-    it('should generate different hashes for different messages', () => {
+    it('should generate different hashes for different first user messages', () => {
       const messages1: ChatMessage[] = [
         { role: 'user', content: 'Message 1', timestamp: '2024-01-01T00:00:00Z' },
       ];
@@ -68,6 +82,7 @@ describe('HashGenerator', () => {
       const hash1 = generateChatId(messages1);
       const hash2 = generateChatId(messages2);
 
+      // Should be different because first user message is different
       expect(hash1).not.toBe(hash2);
     });
 

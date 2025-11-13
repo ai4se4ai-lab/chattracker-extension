@@ -2,20 +2,33 @@ import * as crypto from 'crypto';
 import { ChatMessage } from './types';
 
 /**
- * Generates a unique chat ID based on message content and timestamp
+ * Generates a stable chat ID based on the first user message
+ * This creates a permanent identifier for a chat tab/session
+ * The same chat tab will always have the same ID, even if the prompt is edited later
  * @param messages Array of chat messages
  * @returns A short hash string (first 8 characters of MD5 hash)
  */
 export function generateChatId(messages: ChatMessage[]): string {
-  // Concatenate all message contents with their timestamps
+  // Find the first user message - this represents the chat tab/session
+  const firstUserMessage = messages.find(msg => msg.role === 'user');
+  
+  if (firstUserMessage) {
+    // Use first user message content as the stable identifier
+    // This creates a permanent link to the chat tab
+    // Even if the user edits the prompt later, we can still identify it's the same chat
+    const content = firstUserMessage.content.trim();
+    const dataToHash = `chat-tab:${content}`;
+    
+    // Generate MD5 hash and return first 8 characters
+    const hash = crypto.createHash('md5').update(dataToHash).digest('hex');
+    return hash.substring(0, 8);
+  }
+  
+  // Fallback: if no user message, use all messages (shouldn't happen in practice)
   const content = messages
-    .map(msg => `${msg.role}:${msg.content}:${msg.timestamp}`)
+    .map(msg => `${msg.role}:${msg.content}`)
     .join('|');
-  
-  // Add current timestamp to ensure uniqueness even for identical conversations
-  const dataToHash = `${content}|${Date.now()}`;
-  
-  // Generate MD5 hash and return first 8 characters
+  const dataToHash = `chat:${content}`;
   const hash = crypto.createHash('md5').update(dataToHash).digest('hex');
   return hash.substring(0, 8);
 }

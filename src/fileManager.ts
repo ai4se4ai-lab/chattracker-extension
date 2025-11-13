@@ -130,6 +130,86 @@ export function getDisplayPath(absolutePath: string): string {
 }
 
 /**
+ * Finds a chat file by its chat ID
+ * @param chatId The chat ID to look for
+ * @returns The path to the chat file, or null if not found
+ */
+export function findChatFileById(chatId: string): string | null {
+  try {
+    const chatDir = getChatDirectory();
+    if (!fs.existsSync(chatDir)) {
+      return null;
+    }
+
+    // Look for file with this specific chat ID
+    const mdFile = path.join(chatDir, `chat-${chatId}.md`);
+    const jsonFile = path.join(chatDir, `chat-${chatId}.json`);
+    
+    if (fs.existsSync(mdFile)) {
+      return mdFile;
+    }
+    if (fs.existsSync(jsonFile)) {
+      return jsonFile;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[FileManager] Error finding chat file by ID:', error);
+    return null;
+  }
+}
+
+/**
+ * Finds a chat file by matching the first user message
+ * This handles cases where the first prompt was edited but it's still the same chat tab
+ * @param firstUserMessage The first user message content to match
+ * @returns The path to the matching chat file, or null if not found
+ */
+export function findChatFileByFirstMessage(firstUserMessage: string): string | null {
+  try {
+    const chatDir = getChatDirectory();
+    if (!fs.existsSync(chatDir)) {
+      return null;
+    }
+
+    const normalizeContent = (text: string): string => {
+      return (text || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    };
+
+    const targetContent = normalizeContent(firstUserMessage);
+    
+    // Look through all chat files and find one where the first user message matches
+    const files = fs.readdirSync(chatDir)
+      .filter(file => file.startsWith('chat-') && (file.endsWith('.md') || file.endsWith('.json')))
+      .map(file => path.join(chatDir, file));
+
+    for (const filePath of files) {
+      const existingChat = readExistingChatFile(filePath);
+      if (existingChat && existingChat.messages.length > 0) {
+        const firstMsg = existingChat.messages[0];
+        if (firstMsg.role === 'user') {
+          const existingContent = normalizeContent(firstMsg.content);
+          // Check if messages are similar (allowing for edits)
+          // If they're very similar, it's likely the same chat tab with edited prompt
+          if (existingContent === targetContent || 
+              (existingContent.length > 10 && targetContent.length > 10 && 
+               (existingContent.includes(targetContent.substring(0, Math.min(20, targetContent.length))) ||
+                targetContent.includes(existingContent.substring(0, Math.min(20, existingContent.length)))))) {
+            console.log('[FileManager] Found chat file with matching first message:', path.basename(filePath));
+            return filePath;
+          }
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[FileManager] Error finding chat file by first message:', error);
+    return null;
+  }
+}
+
+/**
  * Finds the most recently modified chat file in the chat directory
  * @returns The path to the most recent chat file, or null if none exists
  */
@@ -236,6 +316,68 @@ export function readExistingChatFile(filePath: string): { messages: any[], conte
     console.error('[FileManager] Error reading existing chat file:', error);
     return null;
   }
+}
+
+/**
+ * Checks if the new messages represent an edited initial prompt scenario
+ * An edited prompt means: first message differs, but subsequent messages match
+ * @param existingMessages Messages from the existing file
+ * @param newMessages New messages to check
+ * @returns true if this is an edited prompt scenario, false otherwise
+ */
+export function isEditedPrompt(existingMessages: any[], newMessages: any[]): boolean {
+  if (existingMessages.length === 0 || newMessages.length === 0) {
+    return false;
+  }
+  
+  // If first messages differ but rest match, it's likely an edited prompt
+  if (existingMessages.length === newMessages.length) {
+    // Same number of messages - check if all except first match
+    let matchCount = 0;
+    const normalizeContent = (text: string): string => {
+      return (text || '').trim().replace(/\s+/g, ' ').replace(/\n+/g, '\n').trim();
+    };
+    
+    for (let i = 1; i < existingMessages.length; i++) {
+      const existingContent = normalizeContent(existingMessages[i].content || '');
+      const newContent = normalizeContent(newMessages[i].content || '');
+      
+      if (existingMessages[i].role === newMessages[i].role && existingContent === newContent) {
+        matchCount++;
+      }
+    }
+    
+    // If all messages except first match, it's an edited prompt
+    if (matchCount === existingMessages.length - 1 && existingMessages.length > 1) {
+      console.log('[FileManager] isEditedPrompt: Detected edited initial prompt (all messages except first match)');
+      return true;
+    }
+  } else if (newMessages.length > existingMessages.length) {
+    // More messages in new - check if existing messages (except first) match new messages (except first)
+    const normalizeContent = (text: string): string => {
+      return (text || '').trim().replace(/\s+/g, ' ').replace(/\n+/g, '\n').trim();
+    };
+    
+    // Check if messages from index 1 onwards match
+    let matchCount = 0;
+    const minLength = Math.min(existingMessages.length, newMessages.length);
+    for (let i = 1; i < minLength; i++) {
+      const existingContent = normalizeContent(existingMessages[i].content || '');
+      const newContent = normalizeContent(newMessages[i].content || '');
+      
+      if (existingMessages[i].role === newMessages[i].role && existingContent === newContent) {
+        matchCount++;
+      }
+    }
+    
+    // If all messages except first match, it's an edited prompt with new messages
+    if (matchCount === minLength - 1 && minLength > 1) {
+      console.log('[FileManager] isEditedPrompt: Detected edited initial prompt with new messages');
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 /**
