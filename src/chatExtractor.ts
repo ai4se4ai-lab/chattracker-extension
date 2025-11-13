@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { ChatMessage, ExportedChat, ExtractionResult, ChatMetadata } from './types';
 import { generateChatId, generateChatIdFromContent } from './hashGenerator';
 
@@ -89,14 +90,50 @@ async function tryBuiltInExport(): Promise<ExtractionResult> {
           try {
             console.log('[Chat Tracker] ✅ New export file detected:', uri.fsPath);
             
-            // Wait a moment for file to finish writing
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Wait for file to finish writing - use exponential backoff for large files
+            let fileSize = 0;
+            let previousSize = 0;
+            let stableCount = 0;
+            const maxWaitTime = 30000; // 30 seconds max wait
+            const startTime = Date.now();
             
-            // Read the file content
+            // Poll file size until it stabilizes (file is fully written)
+            // Use Node.js fs for file stats since VS Code API might not have stat
+            const filePath = uri.fsPath;
+            
+            while (Date.now() - startTime < maxWaitTime) {
+              try {
+                if (fs.existsSync(filePath)) {
+                  const stats = fs.statSync(filePath);
+                  fileSize = stats.size;
+                  
+                  // If size hasn't changed in 3 consecutive checks, file is likely complete
+                  if (fileSize === previousSize && fileSize > 0) {
+                    stableCount++;
+                    if (stableCount >= 3) {
+                      break; // File size is stable, it's done writing
+                    }
+                  } else {
+                    stableCount = 0; // Reset counter if size changed
+                  }
+                  
+                  previousSize = fileSize;
+                }
+                await new Promise(resolve => setTimeout(resolve, 200)); // Check every 200ms
+              } catch (error) {
+                // File might not exist yet or stats failed, wait a bit more
+                await new Promise(resolve => setTimeout(resolve, 200));
+              }
+            }
+            
+            // Additional small delay to ensure file handle is released
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Read the file content - use readFile which handles large files better
             const content = await vscode.workspace.fs.readFile(uri);
             const text = Buffer.from(content).toString('utf-8');
             
-            console.log('[Chat Tracker] Read content, length:', text.length);
+            console.log('[Chat Tracker] Read content, length:', text.length, 'bytes, file size:', fileSize);
             
             // Parse the content
             const messages = parseTextAsChat(text);

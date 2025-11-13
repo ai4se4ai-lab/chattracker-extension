@@ -1,0 +1,2 @@
+Empty chat content
+
