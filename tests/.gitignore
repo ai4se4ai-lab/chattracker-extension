@@ -1,0 +1,12 @@
+# Test coverage reports
+coverage/
+*.lcov
+
+# Test output
+test-results/
+*.test.js.map
+
+# Temporary test files
+tmp/
+temp/
+

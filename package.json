@@ -1,11 +1,11 @@
-{ 
+{
   "name": "cursor-chat-tracker",
   "displayName": "Cursor Chat Tracker",
-  "description": "Track and export Cursor chat interactions with prompts and AI responses",
-  "version": "0.0.1",
-  "publisher": "your-publisher",
+  "description": "Automatically export Cursor chat messages to JSON files",
+  "version": "1.0.0",
+  "publisher": "cursor-chat-tracker",
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.74.0"
   },
   "categories": [
     "Other"
@@ -14,200 +14,41 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
-  },
   "contributes": {
     "commands": [
       {
         "command": "cursor-chat-tracker.exportChat",
-        "title": "Export Chat to Backend",
-        "category": "Cursor Chat Tracker",
-        "icon": "$(export)"
-      },
-      {
-        "command": "cursor-chat-tracker.addUserMessage",
-        "title": "Add User Message",
-        "category": "Cursor Chat Tracker",
-        "icon": "$(add)"
-      },
-      {
-        "command": "cursor-chat-tracker.captureFromSelection",
-        "title": "Capture from Selection",
-        "category": "Cursor Chat Tracker",
-        "icon": "$(selection)"
-      },
-      {
-        "command": "cursor-chat-tracker.startNewSession",
-        "title": "Start New Session",
-        "category": "Cursor Chat Tracker",
-        "icon": "$(new-file)"
-      },
-      {
-        "command": "cursor-chat-tracker.clearSession",
-        "title": "Clear Current Session",
-        "category": "Cursor Chat Tracker",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "cursor-chat-tracker.switchSession",
-        "title": "Switch Session",
-        "category": "Cursor Chat Tracker"
-      },
-      {
-        "command": "cursor-chat-tracker.openConfig",
-        "title": "Open Configuration",
-        "category": "Cursor Chat Tracker",
-        "icon": "$(edit)"
-      },
-      {
-        "command": "cursor-chat-tracker.openSettings",
-        "title": "Open Settings",
-        "category": "Cursor Chat Tracker",
-        "icon": "$(settings-gear)"
-      },
-      {
-        "command": "cursor-chat-tracker.reloadConfig",
-        "title": "Reload Configuration",
-        "category": "Cursor Chat Tracker",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "cursor-chat-tracker.associateChatTab",
-        "title": "Associate with Chat Tab",
-        "category": "Cursor Chat Tracker",
-        "icon": "$(link)"
-      },
-      {
-        "command": "cursor-chat-tracker.exportSession",
-        "title": "Export Session to Backend",
-        "category": "Cursor Chat Tracker",
-        "icon": "$(export)"
+        "title": "Export Chat Messages"
       }
     ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "cursor-chat-tracker",
-          "title": "Chat Tracker",
-          "icon": "$(comment-discussion)"
-        }
-      ]
-    },
-    "views": {
-      "cursor-chat-tracker": [
-        {
-          "id": "cursor-chat-tracker-view",
-          "name": "Chat Tracker",
-          "when": "true"
-        }
-      ]
-    },
-    "menus": {
-      "commandPalette": [
-        {
-          "command": "cursor-chat-tracker.exportChat",
-          "title": "Cursor Chat Tracker: Export Chat to Backend"
-        },
-        {
-          "command": "cursor-chat-tracker.addUserMessage",
-          "title": "Cursor Chat Tracker: Add User Message"
-        },
-        {
-          "command": "cursor-chat-tracker.captureFromSelection",
-          "title": "Cursor Chat Tracker: Capture from Selection"
-        },
-        {
-          "command": "cursor-chat-tracker.startNewSession",
-          "title": "Cursor Chat Tracker: Start New Session"
-        },
-        {
-          "command": "cursor-chat-tracker.clearSession",
-          "title": "Cursor Chat Tracker: Clear Current Session"
-        },
-        {
-          "command": "cursor-chat-tracker.openConfig",
-          "title": "Cursor Chat Tracker: Open Configuration"
-        },
-        {
-          "command": "cursor-chat-tracker.openSettings",
-          "title": "Cursor Chat Tracker: Open Settings"
-        },
-        {
-          "command": "cursor-chat-tracker.reloadConfig",
-          "title": "Cursor Chat Tracker: Reload Configuration"
-        },
-        {
-          "command": "cursor-chat-tracker.associateChatTab",
-          "title": "Cursor Chat Tracker: Associate with Chat Tab"
-        },
-        {
-          "command": "cursor-chat-tracker.exportSession",
-          "title": "Cursor Chat Tracker: Export Session to Backend"
-        }
-      ],
-      "view/title": [
-        {
-          "command": "cursor-chat-tracker.exportChat",
-          "when": "view == cursor-chat-tracker-view",
-          "group": "navigation"
-        },
-        {
-          "command": "cursor-chat-tracker.startNewSession",
-          "when": "view == cursor-chat-tracker-view",
-          "group": "navigation"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "cursor-chat-tracker.exportChat",
-          "when": "view == cursor-chat-tracker-view && viewItem == action.export",
-          "group": "inline"
-        },
-        {
-          "command": "cursor-chat-tracker.clearSession",
-          "when": "view == cursor-chat-tracker-view && viewItem == action.clear",
-          "group": "inline"
-        },
-        {
-          "command": "cursor-chat-tracker.switchSession",
-          "when": "view == cursor-chat-tracker-view && viewItem == session.item",
-          "group": "inline"
-        },
-        {
-          "command": "cursor-chat-tracker.exportSession",
-          "when": "view == cursor-chat-tracker-view && viewItem == session.item",
-          "group": "1_actions"
-        }
-      ]
-    },
-    "configuration": {
-      "title": "Cursor Chat Tracker",
-      "properties": {
-        "cursorChatTracker.configPath": {
-          "type": "string",
-          "default": "${workspaceFolder}/.cursor-chat-tracker.json",
-          "description": "Path to the JSON configuration file"
-        },
-        "cursorChatTracker.backendUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Backend API endpoint (overrides config file)"
-        },
-        "cursorChatTracker.connectionCode": {
-          "type": "string",
-          "default": "",
-          "description": "Connection code for authentication (overrides config file)"
-        }
+    "keybindings": [
+      {
+        "command": "cursor-chat-tracker.exportChat",
+        "key": "ctrl+shift+space",
+        "mac": "cmd+shift+space"
       }
-    }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/vscode": "^1.80.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.74.0",
+    "@vscode/vsce": "^2.19.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.5",
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/crypto-js": "^4.2.0",
+    "crypto-js": "^4.2.0"
   }
 }
-
